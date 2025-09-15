@@ -11,7 +11,6 @@ variable "environment" {
 }
 
 
-
 ###########################################################
 #                      CONFIG VARS
 ###########################################################
@@ -22,4 +21,24 @@ variable "cloudtrail_bucket_name" {
 variable "cloudtrail_key_prefix" {
   type    = string
   default = "cloudtrail"
+}
+
+variable "bucket" {
+  type = string
+}
+
+variable "key" {
+  type = string
+}
+
+variable "region" {
+  type = string
+}
+
+variable "dynamodb_table" {
+  type = string
+}
+
+variable "encrypt" {
+  type = bool
 }
