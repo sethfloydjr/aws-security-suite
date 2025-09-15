@@ -1,0 +1,111 @@
+name: TruffleHog
+
+on:
+  workflow_call:
+    inputs:
+      fail_on_secrets:
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      GH_TOKEN:
+        required: true
+
+env:
+  TRUFFLEHOG_VERSION: 3.89.2
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Install GitHub CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh
+
+      - name: Install TruffleHog
+        run: |
+          curl -sL https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/trufflehog_${TRUFFLEHOG_VERSION}_linux_amd64.tar.gz -o trufflehog.tar.gz
+          tar -xzf trufflehog.tar.gz trufflehog
+          chmod +x trufflehog
+          sudo mv trufflehog /usr/local/bin/
+
+      - name: Checkout full repo history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Run TruffleHog
+        id: scan
+        run: |
+          echo "Running TruffleHog v${TRUFFLEHOG_VERSION}..."
+          trufflehog git "file://${GITHUB_WORKSPACE}" \
+            --no-update \
+            --since-commit "${{ github.event.pull_request.base.sha }}" \
+            > trufflehog-report.txt || true
+
+          if [ -s trufflehog-report.txt ]; then
+            COUNT=$(grep -Ec '^✅ Found verified result|^Found unverified result' trufflehog-report.txt || true)
+          else
+            COUNT=0
+          fi
+
+          echo "Secrets found: $COUNT"
+          echo "found=$COUNT" >> "$GITHUB_ENV"
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Upload TruffleHog report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trufflehog-report
+          path: trufflehog-report.txt
+
+      - name: Comment on PR if secrets found
+        if: env.found != '0' && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          COUNT="$found"
+          REPO="${{ github.repository }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          RUN_URL="https://github.com/${REPO}/actions/runs/${{ github.run_id }}"
+          MSG="🚨 *TruffleHog detected ${COUNT} potential secrets* in this PR. [View full report](${RUN_URL})"
+
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$MSG"
+
+
+      - name: Fail if secrets found and flag is true
+        if: env.found != '0' && inputs.fail_on_secrets == true
+        run: |
+          echo "❌ Secrets detected and fail_on_secrets=true. Failing the job."
+          exit 1
+
+
+
+          name: TruffleHog Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read # Required to checkout repo
+  pull-requests: write # Required to comment on PR
+
+jobs:
+  trufflehog:
+    uses: Enflick/workflow-manifest/.github/workflows/trufflehog.yml@main
+    with:
+      fail_on_secrets: false # Set to true to fail the job on finding secrets
+    secrets:
+      SECURITY_WEBHOOK_URL: ${{ secrets.SECURITY_WEBHOOK_URL }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
