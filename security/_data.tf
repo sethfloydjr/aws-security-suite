@@ -1,3 +1,5 @@
+data "aws_organizations_organization" "org" {}
+
 data "terraform_remote_state" "root" {
   backend = "s3"
   config = {
@@ -9,6 +11,7 @@ data "terraform_remote_state" "root" {
   }
 }
 
+/*
 data "terraform_remote_state" "logging" {
   backend = "s3"
   config = {
@@ -19,5 +22,4 @@ data "terraform_remote_state" "logging" {
     encrypt      = true
   }
 }
-
-data "aws_organizations_organization" "org" {}
+*/
