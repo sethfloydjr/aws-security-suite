@@ -8,6 +8,10 @@ data "aws_caller_identity" "security" {
   provider = aws.security
 }
 
+data "aws_region" "current" {}
+
+data "aws_organizations_organization" "org" {}
+
 ######################################
 # BUCKET POLICY (AFTER TRAIL EXISTS)
 ######################################
@@ -37,12 +41,6 @@ data "aws_iam_policy_document" "trail_bucket" {
       test     = "StringEquals"
       variable = "s3:x-amz-acl"
       values   = ["bucket-owner-full-control"]
-    }
-    # Tighten: allow writes only from this trail
-    condition {
-      test     = "ArnLike"
-      variable = "aws:SourceArn"
-      values   = [local.trail_arn_for_kms]
     }
   }
 }

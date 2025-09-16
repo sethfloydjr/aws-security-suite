@@ -40,3 +40,8 @@ variable "kms_key_arn" {
   type    = string
   default = ""
 }
+
+variable "s3_logs_target_bucket" {
+  description = "S3 bucket that will receive Server Access Logs for the CloudTrail bucket"
+  type        = string
+}

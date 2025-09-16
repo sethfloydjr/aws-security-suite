@@ -3,9 +3,41 @@ resource "aws_s3_bucket" "logging" {
   object_lock_enabled = true
 }
 
+resource "aws_s3_bucket_policy" "logging_log_delivery" {
+  bucket = aws_s3_bucket.logging.id
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid    = "AWSLogDeliveryAclCheck",
+        Effect = "Allow",
+        Principal = {
+          Service = "logging.s3.amazonaws.com"
+        },
+        Action = [
+          "s3:GetBucketAcl",
+          "s3:ListBucket"
+        ],
+        Resource = aws_s3_bucket.logging.arn
+      },
+      {
+        Sid       = "AWSLogDeliveryWrite",
+        Effect    = "Allow",
+        Principal = { Service = "logging.s3.amazonaws.com" },
+        Action    = "s3:PutObject",
+        Resource  = "${aws_s3_bucket.logging.arn}/*",
+        Condition = {
+          StringEquals = { "s3:x-amz-acl" = "bucket-owner-full-control" }
+        }
+      }
+    ]
+  })
+}
+
+
 resource "aws_s3_bucket_ownership_controls" "this" {
   bucket = aws_s3_bucket.logging.id
-  rule { object_ownership = "BucketOwnerEnforced" }
+  rule { object_ownership = "BucketOwnerPreferred" }
 }
 
 resource "aws_s3_bucket_public_access_block" "this" {
@@ -80,7 +112,7 @@ resource "aws_s3_bucket" "sequester" {
 resource "aws_s3_bucket_ownership_controls" "sequester" {
   count  = var.enable_sequester ? 1 : 0
   bucket = aws_s3_bucket.sequester[0].id
-  rule { object_ownership = "BucketOwnerEnforced" }
+  rule { object_ownership = "BucketOwnerPreferred" }
 }
 
 resource "aws_s3_bucket_public_access_block" "sequester" {

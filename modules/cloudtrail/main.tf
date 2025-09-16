@@ -14,6 +14,31 @@ resource "aws_s3_bucket" "trail" {
   bucket   = var.bucket_name
 }
 
+resource "aws_s3_bucket_policy" "trail" {
+  provider = aws.logging
+  bucket   = aws_s3_bucket.trail.id
+  policy   = data.aws_iam_policy_document.trail_bucket.json
+}
+
+
+resource "aws_s3_bucket_logging" "s3_logging" {
+  provider      = aws.logging
+  bucket        = aws_s3_bucket.trail.id
+  target_bucket = var.s3_logs_target_bucket
+  target_prefix = "cloudtrail"
+  target_object_key_format {
+    partitioned_prefix { partition_date_source = "EventTime" }
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.s3_logs_target_bucket != null && var.s3_logs_target_bucket != ""
+      error_message = "s3_logs_target_bucket is required and must match the logging bucket in region ${data.aws_region.current.region}."
+    }
+  }
+
+}
+
 resource "aws_s3_bucket_ownership_controls" "trail" {
   provider = aws.logging
   bucket   = aws_s3_bucket.trail.id
@@ -166,16 +191,7 @@ resource "aws_cloudtrail" "org_from_security" {
 
 
 
-resource "aws_s3_bucket_policy" "trail" {
-  provider = aws.logging
-  bucket   = aws_s3_bucket.trail.id
-  policy   = data.aws_iam_policy_document.trail_bucket.json
 
-  depends_on = [
-    aws_cloudtrail.org_from_root,
-    aws_cloudtrail.org_from_security
-  ]
-}
 
 
 # Now that we know the trail ARN, optionally extend KMS key policy (if we created the key)
