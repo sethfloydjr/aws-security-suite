@@ -51,6 +51,10 @@ Once I have this setup for all 3 directories/accounts (while changing the respec
 
 # Components
 
+## Trufflehog
+
+For secret exposure mitigation im just using the basic Trufflehog scan. More info can be found [here}(https://github.com/trufflesecurity/trufflehog/tree/main?tab=readme-ov-file#general-usage)
+
 ## Org CloudTrail
 
 Apply in this order:
@@ -128,7 +132,6 @@ Notes:
 
 Object Lock ensures lifecycle won’t delete objects under legal hold. When someone sets a legal hold (PutObjectLegalHold), CloudTrail emits an event; EventBridge rule matches it and invokes Lambda. Lambda copies that object to your sequester bucket. You may additionally have Lambda put a legal hold on the copy (commented code provided). If you’d rather not deploy Lambda/EventBridge now, set enable_sequester = false. Legal holds are still respected (deletes/expiration will skip those objects). For more information see the [AWS Object Lock documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock.html)
 
-## Trufflehog
 
 # Notes
 
