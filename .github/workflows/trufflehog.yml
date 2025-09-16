@@ -56,7 +56,15 @@ jobs:
           trufflehog git "file://${GITHUB_WORKSPACE}" \
             --no-update \
             --since-commit "${SINCE_COMMIT}" \
-            > trufflehog-report.txt || true
+            > trufflehog-report.txt
+
+          STATUS=$?
+
+          if [ "${STATUS}" -ne 0 ] && [ "${STATUS}" -ne 183 ]; then
+            echo "TruffleHog failed with exit code ${STATUS}."
+            cat trufflehog-report.txt
+            exit "${STATUS}"
+          fi
 
           if [ -s trufflehog-report.txt ]; then
             COUNT=$(grep -Ec '^✅ Found verified result|^Found unverified result' trufflehog-report.txt || true)
