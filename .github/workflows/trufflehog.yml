@@ -1,27 +1,27 @@
-name: TruffleHog
+name: TruffleHog Scan
 
 on:
-  workflow_call:
-    inputs:
-      fail_on_secrets:
-        required: false
-        type: boolean
-        default: false
-    secrets:
-      GH_TOKEN:
-        required: true
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
 
 env:
-  TRUFFLEHOG_VERSION: 3.89.2
+  TRUFFLEHOG_VERSION: 3.90.6
 
 jobs:
   scan:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
-
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Install GitHub CLI
         run: |
           sudo apt-get update
@@ -29,25 +29,33 @@ jobs:
 
       - name: Install TruffleHog
         run: |
-          curl -sL https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/trufflehog_${TRUFFLEHOG_VERSION}_linux_amd64.tar.gz -o trufflehog.tar.gz
+          curl -sL "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/trufflehog_${TRUFFLEHOG_VERSION}_linux_amd64.tar.gz" -o trufflehog.tar.gz
           tar -xzf trufflehog.tar.gz trufflehog
           chmod +x trufflehog
           sudo mv trufflehog /usr/local/bin/
 
-      - name: Checkout full repo history
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          submodules: false
-          token: ${{ secrets.GH_TOKEN }}
-
       - name: Run TruffleHog
         id: scan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           echo "Running TruffleHog v${TRUFFLEHOG_VERSION}..."
+
+          if [ "${EVENT_NAME}" = "pull_request" ] && [ -n "${BASE_SHA}" ]; then
+            SINCE_COMMIT="${BASE_SHA}"
+          elif [ -n "${BEFORE_SHA}" ]; then
+            SINCE_COMMIT="${BEFORE_SHA}"
+          else
+            SINCE_COMMIT="$(git rev-list --max-parents=0 HEAD)"
+          fi
+
+          echo "Scanning changes since ${SINCE_COMMIT}"
+
           trufflehog git "file://${GITHUB_WORKSPACE}" \
             --no-update \
-            --since-commit "${{ github.event.pull_request.base.sha }}" \
+            --since-commit "${SINCE_COMMIT}" \
             > trufflehog-report.txt || true
 
           if [ -s trufflehog-report.txt ]; then
@@ -56,9 +64,9 @@ jobs:
             COUNT=0
           fi
 
-          echo "Secrets found: $COUNT"
-          echo "found=$COUNT" >> "$GITHUB_ENV"
-          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "Secrets found: ${COUNT}"
+          echo "found=${COUNT}" >> "$GITHUB_ENV"
+          echo "count=${COUNT}" >> "$GITHUB_OUTPUT"
 
       - name: Upload TruffleHog report
         if: always()
@@ -70,42 +78,18 @@ jobs:
       - name: Comment on PR if secrets found
         if: env.found != '0' && github.event_name == 'pull_request'
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          COUNT="$found"
+          COUNT="${found}"
           REPO="${{ github.repository }}"
           PR_NUMBER="${{ github.event.pull_request.number }}"
           RUN_URL="https://github.com/${REPO}/actions/runs/${{ github.run_id }}"
           MSG="🚨 *TruffleHog detected ${COUNT} potential secrets* in this PR. [View full report](${RUN_URL})"
 
-          gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$MSG"
+          gh pr comment "${PR_NUMBER}" --repo "${REPO}" --body "${MSG}"
 
-
-      - name: Fail if secrets found and flag is true
-        if: env.found != '0' && inputs.fail_on_secrets == true
+      - name: Fail if secrets found
+        if: env.found != '0'
         run: |
-          echo "❌ Secrets detected and fail_on_secrets=true. Failing the job."
+          echo "❌ Secrets detected."
           exit 1
-
-
-
-          name: TruffleHog Scan
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-  workflow_dispatch:
-
-permissions:
-  contents: read # Required to checkout repo
-  pull-requests: write # Required to comment on PR
-
-jobs:
-  trufflehog:
-    uses: Enflick/workflow-manifest/.github/workflows/trufflehog.yml@main
-    with:
-      fail_on_secrets: false # Set to true to fail the job on finding secrets
-    secrets:
-      SECURITY_WEBHOOK_URL: ${{ secrets.SECURITY_WEBHOOK_URL }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
