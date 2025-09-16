@@ -23,3 +23,6 @@ data "terraform_remote_state" "security" {
   }
 }
 */
+
+
+data "aws_region" "current" {}

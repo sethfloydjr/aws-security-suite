@@ -11,7 +11,7 @@ data "terraform_remote_state" "root" {
   }
 }
 
-/*
+
 data "terraform_remote_state" "logging" {
   backend = "s3"
   config = {
@@ -22,4 +22,3 @@ data "terraform_remote_state" "logging" {
     encrypt      = true
   }
 }
-*/

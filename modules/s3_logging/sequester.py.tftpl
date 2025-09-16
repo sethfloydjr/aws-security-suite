@@ -1,0 +1,20 @@
+import boto3, os, json
+s3 = boto3.client("s3")
+SEQUESTER_BUCKET = os.environ.get("SEQUESTER_BUCKET")
+
+def lambda_handler(event, context):
+    detail = event.get("detail", {})
+    params = detail.get("requestParameters", {}) or {}
+    src_bucket = params.get("bucketName")
+    key = params.get("key")
+    if not src_bucket or not key:
+        print("Missing bucket/key in event:", json.dumps(event))
+        return {"status":"ignored"}
+
+    print(f"Copying s3://{src_bucket}/{key} -> s3://{SEQUESTER_BUCKET}/{key}")
+    s3.copy_object(Bucket=SEQUESTER_BUCKET, Key=key,
+                   CopySource={"Bucket": src_bucket, "Key": key},
+                   MetadataDirective="COPY")
+    # Optionally apply a legal hold on the copy too:
+    # s3.put_object_legal_hold(Bucket=SEQUESTER_BUCKET, Key=key, LegalHold={"Status":"ON"})
+    return {"status":"ok"}

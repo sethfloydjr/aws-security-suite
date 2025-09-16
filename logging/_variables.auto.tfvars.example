@@ -1,1 +1,13 @@
-trail_bucket_name = "YOUR CLOUDTRAIL BUCKET NAME"
+bucket_name_prefix = "s3-logging"
+
+# Set to true to enable that region
+enabled_regions = {
+  "us-east-1"    = false
+  "us-west-2"    = false
+  "us-east-2"    = false
+  "us-west-1"    = false
+  "eu-central-1" = false
+  "eu-west-1"    = false
+}
+
+sequester_bucket_name = "s3-logging-sequester"

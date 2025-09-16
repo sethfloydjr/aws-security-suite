@@ -1,4 +1,4 @@
-/*
+
 module "cloudtrail" {
   source = "../modules/cloudtrail"
   providers = {
@@ -12,5 +12,5 @@ module "cloudtrail" {
   delegate_security_as_admin = true
   enable_data_events         = false # Check pricing before setting this to true.
   use_kms                    = false # flip later if you want KMS in Logging
+  s3_logs_target_bucket      = data.terraform_remote_state.logging.outputs.s3_logging_buckets["us-east-1"]
 }
-*/
