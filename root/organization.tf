@@ -41,6 +41,7 @@ resource "aws_organizations_account" "security" {
   close_on_deletion          = false
 }
 
+
 resource "aws_organizations_account" "logging" {
   name                       = "awsss-logging"
   email                      = var.logging_account_email
@@ -65,4 +66,10 @@ resource "aws_iam_organizations_features" "centralized_root_access" {
 # CloudTrail admin to live in Security instead of the root account
 resource "aws_cloudtrail_organization_delegated_admin_account" "cloudtrail_admin" {
   account_id = aws_organizations_account.security.id
+}
+
+# GuardDuty admin to live in Security instead of the root account
+resource "aws_guardduty_organization_admin_account" "guardduty_admin" {
+  depends_on       = [aws_organizations_organization.awssecsuite]
+  admin_account_id = aws_organizations_account.security.id
 }

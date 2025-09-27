@@ -113,7 +113,7 @@ resource "aws_kms_alias" "trail" {
 
 
 #################################
-# ORG TRAIL (IN root OR SECURITY)
+# ORG TRAIL IN ROOT 
 #################################
 resource "aws_cloudtrail" "org_from_root" {
   provider                      = aws.root
