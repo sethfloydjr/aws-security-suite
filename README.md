@@ -132,6 +132,58 @@ Notes:
 
 Object Lock ensures lifecycle won’t delete objects under legal hold. When someone sets a legal hold (PutObjectLegalHold), CloudTrail emits an event; EventBridge rule matches it and invokes Lambda. Lambda copies that object to your sequester bucket. You may additionally have Lambda put a legal hold on the copy (commented code provided). If you’d rather not deploy Lambda/EventBridge now, set enable_sequester = false. Legal holds are still respected (deletes/expiration will skip those objects). For more information see the [AWS Object Lock documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock.html)
 
+## Guardduty
+
+* What it does
+  * Security account: Creates a GuardDuty detector per enabled region and enables features (S3 data events, EBS malware; EKS audit logs optional).
+  * Logging account: Creates hardened, regional S3 buckets for findings plus regional KMS keys.
+  * Organization: Sets org members to NEW (auto‑onboard new accounts) in each enabled region.
+
+* Why use it
+  * Centralizes findings in a restricted Logging account with per‑region CMKs.
+  * Least‑privilege S3/KMS policies (scoped by `SourceAccount`/`SourceArn`).
+  * Scales org‑wide: new accounts are auto‑enabled in chosen regions.
+
+* Prereqs
+  * Apply the root stack to delegate GuardDuty admin to the Security account (see `root/organization.tf`).
+
+* Configure (in `security/_variables.auto.tfvars`)
+  * Enable regions (true = create detector, bucket, KMS, destination):
+    * `guardduty_enabled_regions = { "us-east-1" = true, "us-west-2" = true, ... }`
+  * Findings bucket naming (base name; module appends `-<region>`):
+    * `guardduty_bucket_name = "your-unique-prefix"`
+  * Org/new-account handling and features:
+    * `guardduty_auto_enable_new_accounts = true`        # org members set to NEW
+    * `guardduty_auto_enable_s3_logs = true`             # org feature S3_DATA_EVENTS = NEW
+    * `guardduty_auto_enable_eks_audit_logs = false`     # EKS audit logs off by default
+    * `guardduty_auto_enable_malware_protection = true`  # detector feature EBS malware = ENABLED
+
+* Enable EKS audit logs
+  * Turn ON by setting: `guardduty_auto_enable_eks_audit_logs = true`
+  * Effects:
+    * Detector feature KUBERNETES_AUDIT_LOGS = ENABLED
+    * Org feature EKS_AUDIT_LOGS = NEW (auto‑enroll for new accounts in enabled regions)
+
+* Enable EBS malware protection
+  * Detector‑level scanning is ON by default (`guardduty_auto_enable_malware_protection = true`) and findings publish to the Logging bucket.
+  * Org‑wide auto‑enroll for EBS malware (enable for all new/existing members) is not managed by default to ensure first apply succeeds everywhere. If you want it ON org‑wide now, run (Security account, per region):
+    * `aws guardduty update-organization-configuration --region <region> --detector-id <detector-id> --features name=EBS_MALWARE_PROTECTION,autoEnable=NEW`
+  * After that, you can choose to manage the org EBS auto‑enable in code if desired.
+
+* Apply and verify
+  * Apply order: `cd root && terraform apply` → `cd security && terraform apply`
+  * Findings land in Logging: `s3://<guardduty_bucket_name>-<region>/`
+  * Quick test (Security account):
+    * `aws guardduty list-detectors --region <region>`
+    * `aws guardduty list-publishing-destinations --detector-id <id> --region <region>`
+    * `aws guardduty create-sample-findings --detector-id <id> --region <region>`
+  * Org config check:
+    * `aws guardduty describe-organization-configuration --detector-id <id> --region <region>`
+    * Expect: `AutoEnableOrganizationMembers = NEW`, `S3_DATA_EVENTS = NEW`, `EKS_AUDIT_LOGS = NONE` (unless enabled). Detector feature `EBS_MALWARE_PROTECTION = ENABLED`.
+
+* Files
+  * `security/guardduty.tf` (per‑region modules and providers)
+  * `modules/guardduty/*` (detector, features, publishing, KMS, S3 policy)
 
 # Notes
 

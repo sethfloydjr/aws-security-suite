@@ -2,9 +2,9 @@
 module "cloudtrail" {
   source = "../modules/cloudtrail"
   providers = {
-    aws.root     = aws          # default = mgmt/root
-    aws.security = aws.security # assumed role into security
-    aws.logging  = aws.logging  # assumed role into logging
+    aws.root     = aws # default = mgmt/root
+    aws.security = aws.security_us_east_1
+    aws.logging  = aws.logging_us_east_1
   }
   bucket_name                = "awsss-org-cloudtrail-logs" # put in secrets.auto.tfvars
   key_prefix                 = "cloudtrail"
