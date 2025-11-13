@@ -1,3 +1,0 @@
-profile    = "YOUR LOCAL PROFILE NAME"
-lock_table = "NAME OF YOUR DYNAMODB TABLE"
-kms_alias  = "alias/YOUR-KMS-ALIAS"

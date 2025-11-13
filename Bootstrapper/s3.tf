@@ -1,3 +1,5 @@
+# Creates the terraform state bucket, replication bucket, KMS keys to encrypt, and a DyanmoDB table to hepl with statefile locking.
+
 # KMS key for TF state encryption
 resource "aws_kms_key" "terraform_state_bucket" {
   description             = "KMS key for Terraform state bucket"
@@ -6,13 +8,13 @@ resource "aws_kms_key" "terraform_state_bucket" {
 }
 
 resource "aws_kms_alias" "terraform_state_bucket" {
-  name          = var.kms_alias
+  name          = "alias/${var.project}-terraform"
   target_key_id = aws_kms_key.terraform_state_bucket.key_id
 }
 
 # EAST BUCKET
 resource "aws_s3_bucket" "terraform_state_bucket" {
-  bucket = "awsss-terraform"
+  bucket = "${var.project}-terraform"
 }
 
 resource "aws_s3_bucket_versioning" "terraform_state_bucket" {
@@ -47,7 +49,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state_b
 # WEST BUCKET - REPLICATION TARGET
 resource "aws_s3_bucket" "terraform_repl_state_bucket" {
   provider = aws.west
-  bucket   = "awsss-terraform-replication"
+  bucket   = "${var.project}-terraform-replication"
 }
 
 resource "aws_s3_bucket_versioning" "terraform_repl_state_bucket" {
@@ -72,12 +74,12 @@ resource "aws_s3_bucket_public_access_block" "terraform_repl_state_bucket" {
 
 # BUCKET REPLICATION PERMISSIONS
 resource "aws_iam_role" "bucket_replication" {
-  name               = "terraform-bucket-replication"
+  name               = "${var.project}-terraform-bucket-replication"
   assume_role_policy = data.aws_iam_policy_document.bucket_assume_role.json
 }
 
 resource "aws_iam_policy" "bucket_replication" {
-  name   = "terraform-bucket-replication"
+  name   = "${var.project}-terraform-bucket-replication"
   policy = data.aws_iam_policy_document.bucket_replication.json
 }
 
@@ -112,7 +114,7 @@ resource "aws_s3_bucket_replication_configuration" "bucket_replication" {
 
 # DynamoDB lock table
 resource "aws_dynamodb_table" "terraform_state" {
-  name         = var.lock_table
+  name         = "${var.project}--terraform-locks"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "LockID"
   attribute {
