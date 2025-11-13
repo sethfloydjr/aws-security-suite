@@ -1,3 +1,4 @@
+# BUCKET PERMISSIONS FOR REPLICATION
 data "aws_iam_policy_document" "bucket_assume_role" {
   statement {
     effect = "Allow"
@@ -47,3 +48,5 @@ data "aws_iam_policy_document" "bucket_replication" {
     resources = ["${aws_s3_bucket.terraform_repl_state_bucket.arn}/*"]
   }
 }
+
+# IAM PERMISSIONS FOR THE ADMIN GROUP
